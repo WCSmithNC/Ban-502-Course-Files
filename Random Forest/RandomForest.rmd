@@ -1,0 +1,85 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+```{r}
+options(tidyverse.quiet=TRUE)
+library(tidyverse)
+library(caret)
+library(ranger)
+```
+
+```{r}
+Blood <- read_csv("Blood.csv")
+Blood<-Blood %>% mutate(DonatedMarch = as_factor(as.character(DonatedMarch))) %>% #1
+mutate(DonatedMarch = fct_recode(DonatedMarch,
+"Yes"="1",
+"No"= "0"))
+#str(Blood)
+```
+
+```{r Task1}
+set.seed(1234)
+train.rows<- createDataPartition(y = Blood$DonatedMarch, p=0.7, list = FALSE)
+train<- slice(Blood, train.rows)
+test<- slice(Blood,-train.rows)
+```
+
+```{r Task2}
+fit_control = trainControl(method = "cv",
+                           number = 10)
+
+set.seed(123)
+rf_fit = train(x=as.matrix(train[,-5]), y=as.matrix(train$DonatedMarch),num.trees=100,    
+                method = "ranger",  
+                importance = "permutation",
+                trControl = fit_control,)
+               
+```
+
+```{r}
+saveRDS(rf_fit, "rf_fit.rds")
+```
+
+```{r}
+rf_fit = readRDS("rf_fit.rds")
+```
+
+```{r Task3}
+varImp(rf_fit)
+rf_fit
+```
+
+**Task 3** Using the varImp function, we can see the importance of each variable. Our most important variable for our predictor appears to be TotalDonations, while Mnths_Since_Last is the least important.
+
+```{r Task4}
+predRF = predict.train(rf_fit, train)
+head(predRF)
+```
+
+```{r Task5}
+confusionMatrix(predRF, train$DonatedMarch, positive = "Yes")
+```
+
+**Task 5**
+Below are the accuracy, sensitivity and specificity of our confusion matrix:
+Accuracy : 0.9027
+Sensitivity : 0.6160
+Specificity : 0.9925
+
+**Task 6**
+The accuracy of our model is significantly better than the naive model, with more than a 14% increase in accuracy and a P-value of < 2.2e-16.
+
+```{r Task7}
+predRF_test = predict(rf_fit, newdata = test)
+head(predRF)
+
+confusionMatrix(predRF_test, test$DonatedMarch, positive = "Yes")
+```
+
+**Task 7** Using the model we created, we can make predictions on our test set to validate our answers. My predictions on the test set are not that great in comparison to the training set. Our accuracy falls to 0.75, compared to the naive model which is .7634.  Sensitivity and Specificity are also quite different between the test and training data.  So based on the results, barring any errors made, the model does not perform that well on the testing set.
+
+**Task8**  This model could easily be used in a real world application. Using this model in healthcare could show which variables are most significant in a patient being readmitted to the hospital, or what the liklihood of a retail store having a return based on certain criteria. I would recommend this model for real world use because of the easily understandable output and the lower chance of overfitting the data.  The only concern for the model seems to be if it is a large data set it may be very time consuming to run the model. 
+
+  
